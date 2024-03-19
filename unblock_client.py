@@ -8,9 +8,11 @@ import subprocess
 from consts import PORT
 
 def is_server_running():
-    # Check if the server is running (e.g., by checking if port 5000 is in use)
-    result = subprocess.run(['lsof', '-i', f':{PORT}'], capture_output=True, text=True)
-    return bool(result.stdout)
+    try:
+        response = requests.get(f'http://localhost:{PORT}/')
+        return bool(response.status_code)
+    except requests.exceptions.ConnectionError:
+        return False
 
 def start_server():
     # Get the directory of the current script
@@ -19,11 +21,15 @@ def start_server():
     server_script_path = os.path.join(script_dir, 'unblock_server.py')
 
     # Start the server using sudo
-    password = getpass.getpass("Enter sudo password: ")
-    command = f'echo {password} | sudo -S python3 {server_script_path}'
-    subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    password = getpass.getpass("Enter sudo password: ").replace("'", "\\'").replace(";", "\\;")
 
-    print('Starting server on port f{PORT}')
+    # # Escape single quotes in the password
+    # escaped_password = password.replace("'", "'\\''")
+
+    command = f'echo {password} | sudo -S python3 {server_script_path}'
+    process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    print(f'Starting server on port {PORT}')
 
 def unblock_domain(domain, duration):
     url = f'http://localhost:{PORT}/unblock'
@@ -34,7 +40,9 @@ def unblock_domain(domain, duration):
 def get_enabled_domains():
     # Run the 'hosts enabled' command and capture the output
     result = subprocess.run(['hosts', 'enabled'], capture_output=True, text=True)
-    return [line.split('\t')[1].strip() for line in result.stdout.splitlines()]
+    blacklist = set(['broadcasthost', 'localhost'])
+    domains = [line.split('\t')[1].strip() for line in result.stdout.splitlines()]
+    return [d for d in domains if d and d not in blacklist]
 
 def fuzzy_select_domain(domains):
     # Run 'fzf' with the list of domains as input

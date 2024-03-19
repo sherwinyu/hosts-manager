@@ -30,7 +30,6 @@ def reblock_domain(domain, history):
 
 @app.route('/unblock', methods=['POST'])
 def unblock_domain():
-    print('hi')
     data = request.json
     domain = data['domain']
     requested_duration = data['duration']
