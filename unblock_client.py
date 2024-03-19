@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+
+import getpass
 import os
 import requests
 import subprocess
@@ -15,8 +17,12 @@ def start_server():
     script_dir = os.path.dirname(os.path.realpath(__file__))
     # Construct the path to the server script
     server_script_path = os.path.join(script_dir, 'unblock_server.py')
+
     # Start the server using sudo
-    subprocess.Popen(['sudo', 'python3', server_script_path])
+    password = getpass.getpass("Enter sudo password: ")
+    command = f'echo {password} | sudo -S python3 {server_script_path}'
+    subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
     print('Starting server on port f{PORT}')
 
 def unblock_domain(domain, duration):
