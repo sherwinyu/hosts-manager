@@ -55,7 +55,7 @@ def execute():
     enabled_domains = get_enabled_domains()
     selected_domains = fuzzy_select_domain(enabled_domains).split('\n')
     print(selected_domains)
-    duration = int(input('How many minutes? ') or "3")
+    duration = int(input('How many minutes? [3]') or "3")
     for domain in selected_domains:
         unblock_domain(domain, duration)
 
