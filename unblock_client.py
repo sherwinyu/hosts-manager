@@ -27,9 +27,27 @@ def start_server():
     # escaped_password = password.replace("'", "'\\''")
 
     command = f'echo {password} | sudo -S python3 {server_script_path}'
-    process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
     print(f'Starting server on port {PORT}')
+    try:
+        # Start the server as a background process
+        process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        # Give the server a little time to start up and encounter any immediate errors
+        time.sleep(5)  # Sleep time could be adjusted based on how quickly the server should start
+
+        # Check if the process is still running
+        if process.poll() is not None:  # If poll() returns a value, the process has terminated
+            stdout, stderr = process.communicate()
+            print(f"Error: Server failed to start. Exit code: {process.returncode}")
+            print(f"Standard Error Output: {stderr.decode()}")
+        else:
+            print("Server started successfully and is running in the background.")
+
+    except Exception as e:
+        print(f"An exception occurred when trying to start the server: {e}")
+
+
+
 
 def unblock_domain(domain, duration):
     url = f'http://localhost:{PORT}/unblock'

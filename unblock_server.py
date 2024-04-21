@@ -1,4 +1,5 @@
 from flask import Flask, request
+import datetime
 
 import sys
 import os
@@ -23,41 +24,43 @@ sys.stderr = log_file
 
 handler = RotatingFileHandler(log_path, maxBytes=1000000, backupCount=1)
 handler.setLevel(logging.INFO)
-handler.setFormatter(logging.Formatter('[%(asctime)s] %(levelname)s in %(module)s: %(message)s'))
+handler.setFormatter(logging.Formatter('[%(asctime)s] %(module)s: %(message)s'))
 app.logger.addHandler(handler)
 app.logger.setLevel(logging.INFO)
 
-
-
-HISTORY_FILE = 'unblock_history.json'
-
-def get_history():
-    try:
-        with open(HISTORY_FILE, 'r') as file:
-            return json.load(file)
-    except FileNotFoundError:
-        return {}
+def log(msg):
+    cur_ts = datetime.datetime.now().strftime('%H:%m:%S')
+    print(cur_ts + ' ' + msg)
 
 def modify_hosts(action, domain):
+    log(f'### ### sudo hosts {action} {domain}')
     subprocess.run(["sudo", "hosts", action, domain])
 
-def reblock_domain(domain, requested_duration):
-    app.logger.info(f'Reblock {domain} {requested_duration}')
+def reblock_domain(domain, requested_duration, orig_ts, unblock_counter):
+    log(f'### Reblock {unblock_counter}: {domain} {requested_duration} {orig_ts}')
     modify_hosts("enable", domain)
+
+unblock_counter = 0
 
 @app.route('/unblock', methods=['POST'])
 def unblock_domain():
+    global unblock_counter
     data = request.json
     domain = data['domain']
     requested_duration = data['duration']
     duration = requested_duration
+    orig_ts = datetime.datetime.now().strftime('%H:%m:%S')
 
     modify_hosts("disable", domain)
-    timer = threading.Timer(duration * 3, reblock_domain, args=[domain, requested_duration])
+    log(f'### Unblock {unblock_counter}: {domain} {requested_duration} {orig_ts}')
+    timer = threading.Timer(duration * 3, reblock_domain, args=[domain, requested_duration, orig_ts, unblock_counter])
     timer.start()
-    app.logger.info(f'/unblock {domain} {requested_duration}')
+    unblock_counter += 1
     return f"Unblocked {domain} for {duration} minutes."
 
 if __name__ == '__main__':
-    app.logger.info(f'Server starting on port {PORT}')
+    log(f' ')
+    log(f'################################# ')
+    log(f'## Server starting on port {PORT}')
+    log(f'################################# ')
     app.run(host='0.0.0.0', port=PORT)
