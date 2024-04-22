@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import sys
 import getpass
 import os
 import requests
@@ -84,11 +85,15 @@ def execute():
         unblock_domain(domain, str(parsed_duration[0]) + parsed_duration[1])
 
 def log(msg):
-    app.logger.info(msg)
+    global logger
+    logger.info(msg)
 
 if __name__ == "__main__":
+    global logger
     logger = setup_logging('client.log')
     if not is_server_running():
         log('Server is not running. Exiting')
+        sys.exit()
     execute()
 
+logger = None

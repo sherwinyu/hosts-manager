@@ -11,7 +11,7 @@ import time
 import json
 
 from consts import PORT
-from lib import parse_time_format, setup_logging, quit_application_with_confirmation
+from lib import parse_time_format, setup_logging, restart_application
 
 
 app = Flask(__name__)
@@ -29,7 +29,7 @@ def modify_hosts(action, domain):
 def reblock_domain(domain, duration_string, orig_ts, unblock_counter):
     log(f'### Reblock {unblock_counter}: {domain} {duration_string} {orig_ts}')
     modify_hosts("enable", domain)
-    quit_application_with_confirmation('Arc')
+    restart_application('Arc')
 
 unblock_counter = 0
 

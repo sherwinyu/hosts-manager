@@ -48,12 +48,14 @@ def setup_logging(log_filename, log_level=logging.INFO):
 
 
 
-def quit_application_with_confirmation(app_name):
+def restart_application(app_name):
     script = f'''
     tell application "System Events"
-        display dialog "Are you sure you want to quit {app_name}?" buttons ["Yes", "No"] default button "No"
+        display dialog "Do you want to restart {app_name}?" buttons ["Yes", "No"] default button "No"
         if the button returned of the result is "Yes" then
             tell application "{app_name}" to quit
+            delay 2  -- Waits for 2 seconds to ensure the application has quit
+            tell application "{app_name}" to activate
         end if
     end tell
     '''
