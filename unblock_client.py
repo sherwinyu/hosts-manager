@@ -7,6 +7,8 @@ import subprocess
 
 from consts import PORT
 
+from lib import parse_time_format, setup_logging
+
 def is_server_running():
     try:
         response = requests.get(f'http://localhost:{PORT}/')
@@ -49,9 +51,9 @@ def start_server():
 
 
 
-def unblock_domain(domain, duration):
+def unblock_domain(domain, duration_string):
     url = f'http://localhost:{PORT}/unblock'
-    data = {'domain': domain, 'duration': duration}
+    data = {'domain': domain, 'duration_string': duration_string}
     response = requests.post(url, json=data)
     print(response.text)
 
@@ -64,23 +66,29 @@ def get_enabled_domains():
 
 def fuzzy_select_domain(domains):
     # Run 'fzf' with the list of domains as input
-    process = subprocess.Popen(['fzf', '-m', '--height=20'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+    process = subprocess.Popen(['fzf', '-m', '--height=20', '--bind=ctrl-t:toggle-all'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
     stdout, _ = process.communicate('\n'.join(domains))
     return stdout.strip()
+
 
 # Example usage
 def execute():
     enabled_domains = get_enabled_domains()
     selected_domains = fuzzy_select_domain(enabled_domains).split('\n')
     print(selected_domains)
-    duration = int(input('How many minutes? [3]') or "3")
-    for domain in selected_domains:
-        unblock_domain(domain, duration)
+    parsed_duration = None
+    while parsed_duration is None:
+        parsed_duration = parse_time_format(input('How many minutes? [3m] (for seconds, append s e.g. 50s)'))
 
+    for domain in selected_domains:
+        unblock_domain(domain, str(parsed_duration[0]) + parsed_duration[1])
+
+def log(msg):
+    app.logger.info(msg)
 
 if __name__ == "__main__":
+    logger = setup_logging('client.log')
     if not is_server_running():
-        print('Server is not running.')
-        start_server()
+        log('Server is not running. Exiting')
     execute()
 

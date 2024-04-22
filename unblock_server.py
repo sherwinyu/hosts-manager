@@ -11,34 +11,25 @@ import time
 import json
 
 from consts import PORT
+from lib import parse_time_format, setup_logging, quit_application_with_confirmation
+
 
 app = Flask(__name__)
-
-# Set up logging
 script_dir = os.path.dirname(os.path.realpath(__file__))
 log_path = os.path.join(script_dir, 'server.log')
-
-# Redirect stderr to the log file
-log_file = open(log_path, 'a')
-sys.stderr = log_file
-
-handler = RotatingFileHandler(log_path, maxBytes=1000000, backupCount=1)
-handler.setLevel(logging.INFO)
-handler.setFormatter(logging.Formatter('[%(asctime)s] %(module)s: %(message)s'))
-app.logger.addHandler(handler)
-app.logger.setLevel(logging.INFO)
+app.logger = setup_logging(log_path)
 
 def log(msg):
-    cur_ts = datetime.datetime.now().strftime('%H:%m:%S')
-    print(cur_ts + ' ' + msg)
+    app.logger.info(msg)
 
 def modify_hosts(action, domain):
     log(f'### ### sudo hosts {action} {domain}')
     subprocess.run(["sudo", "hosts", action, domain])
 
-def reblock_domain(domain, requested_duration, orig_ts, unblock_counter):
-    log(f'### Reblock {unblock_counter}: {domain} {requested_duration} {orig_ts}')
+def reblock_domain(domain, duration_string, orig_ts, unblock_counter):
+    log(f'### Reblock {unblock_counter}: {domain} {duration_string} {orig_ts}')
     modify_hosts("enable", domain)
+    quit_application_with_confirmation('Arc')
 
 unblock_counter = 0
 
@@ -47,20 +38,42 @@ def unblock_domain():
     global unblock_counter
     data = request.json
     domain = data['domain']
-    requested_duration = data['duration']
-    duration = requested_duration
-    orig_ts = datetime.datetime.now().strftime('%H:%m:%S')
+    duration_string = data['duration_string']
+    parsed = parse_time_format(duration_string)
+    if not parsed:
+        abort(400, description="Invalid duration format")  # Raise a 400 Bad Request error with a custom message
+
+    duration = convert_to_seconds(parsed)
+
+    orig_ts = datetime.datetime.now().strftime('%H:%M:%S')  # Corrected format '%H:%m:%S' to '%H:%M:%S'
 
     modify_hosts("disable", domain)
-    log(f'### Unblock {unblock_counter}: {domain} {requested_duration} {orig_ts}')
-    timer = threading.Timer(duration * 3, reblock_domain, args=[domain, requested_duration, orig_ts, unblock_counter])
+    log(f'### Unblock {unblock_counter}: {domain} {duration_string} {orig_ts}')
+    timer = threading.Timer(duration, reblock_domain, args=[domain, duration_string, orig_ts, unblock_counter])
     timer.start()
     unblock_counter += 1
-    return f"Unblocked {domain} for {duration} minutes."
+    return f"Unblocked {domain} for {duration_string}"
+
+def convert_to_seconds(time_tuple):
+    number, unit = time_tuple
+    if unit == 'm':
+        return number * 60  # Convert minutes to seconds
+    elif unit == 's':
+        return number      # Already in seconds
+    else:
+        raise ValueError("Invalid unit: must be 'm' or 's'")
+
+def check_root():
+    if os.geteuid() != 0:
+        log("Server must be run as root")
+        sys.exit(1)
 
 if __name__ == '__main__':
+    check_root()
+
+
     log(f' ')
     log(f'################################# ')
     log(f'## Server starting on port {PORT}')
     log(f'################################# ')
-    app.run(host='0.0.0.0', port=PORT)
+    app.run(debug=True, host='0.0.0.0', port=PORT)
